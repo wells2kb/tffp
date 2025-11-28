@@ -4,7 +4,7 @@ written. the goal with all these functions is basically to return a dictionary t
 specs while being flexible with input
 """
 
-import json
+
 
 #returns message for users who are trying to join some group
 def make_join_request(group: str):

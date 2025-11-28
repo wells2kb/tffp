@@ -1,7 +1,6 @@
-from message_functions import * #functions returning message format in Python Dictionaries
+from message_functions import *
 def main():
     print("Hello from tffp!")
-
 
 
 if __name__ == "__main__":
