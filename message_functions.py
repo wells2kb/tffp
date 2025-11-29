@@ -4,7 +4,27 @@ written. the goal with all these functions is basically to return a dictionary t
 specs while being flexible with input
 """
 
+def make_login_request(username: str):
+    return {
+        "tffp":{
+            "type":"seek",
+            "body":{
+                "command":"login",
+                "args":username
+            }
+        }
+    }
 
+def make_sign_up_request(username: str):
+    return {
+        "tffp":{
+            "type":"seek",
+            "body":{
+                "command":"sign_up",
+                "args":username
+            }
+        }
+    }
 
 #returns message for users who are trying to join some group
 def make_join_request(group: str):
@@ -14,6 +34,17 @@ def make_join_request(group: str):
             "body":{
                 "group": group,
                 "command":"join"
+            }
+        }
+    }
+
+def make_leave_request(group: str):
+    return {
+        "tffp":{
+            "type":"seek",
+            "body":{
+                "group": group,
+                "command":"leave"
             }
         }
     }
@@ -59,8 +90,6 @@ def make_group_users_request(group):
         }
     }
 
-#don't really need text to be a parameter but wasn't sure what the default message should be,
-#feel free to change
 #server accepts user request
 def make_accept_response(text:str):
     return {
@@ -86,8 +115,8 @@ def make_new_post_update(group:str, post_id:int, sender:str, date:str, subject:s
             "type": "hoot",
             "body": {
                 "group": group,
-                "update": "post",
-                "data": {
+                "command": "post",
+                "args": {
                     "id": post_id,
                     "sender": sender,
                     "date": date,
@@ -97,15 +126,28 @@ def make_new_post_update(group:str, post_id:int, sender:str, date:str, subject:s
         }
     }
 
-#updates the members of the group
-def make_group_update(group:str, user_list):
+#updates that a user has joined
+def make_join_update(group:str, user:str):
     return {
         "tffp": {
             "type": "hoot",
             "body": {
                 "group": group,
-                "update": "users",
-                "data": user_list
+                "command": "join",
+                "args": user
+            }
+        }
+    }
+
+#updates that a user has left
+def make_leave_update(group:str, user:str):
+    return {
+        "tffp": {
+            "type": "hoot",
+            "body": {
+                "group": group,
+                "command": "leave",
+                "args": user
             }
         }
     }
