@@ -1,3 +1,4 @@
+from message_functions import *
 def main():
     print("Hello from tffp!")
 
