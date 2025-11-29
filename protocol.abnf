@@ -2,25 +2,29 @@ TFFP = "{tffp: " MESSAGE "}"
 
 MESSAGE = CLIENT_REQUEST / SERVER_RESPONSE / SERVER_UPDATE
 
-CLIENT_REQUEST = "{type: 'seek', body: {" LOCATION ", " NEW_POST_REQUEST / POST_CONTENT_REQUEST / JOIN_GROUP_REQUEST / GROUP_MEMBERS_REQUEST "}}"
+CLIENT_REQUEST = "{type: 'seek', body: {" (LOCATION ", " NEW_POST_REQUEST / POST_CONTENT_REQUEST / JOIN_GROUP_REQUEST / LEAVE_GROUP_REQUEST / GROUP_MEMBERS_REQUEST) / SIGN_UP_REQUEST / LOGIN_REQUEST "}}"
 NEW_POST_REQUEST = "command: 'post', args: {subject: " STRING ", content: " STRING "}"
-POST_CONTENT_REQUEST = "command: 'content', args: " POST_ID ""
+POST_CONTENT_REQUEST = "command: 'content', args: " POST_ID
 JOIN_GROUP_REQUEST = "command: 'join'"
+LEAVE_GROUP_REQUEST = "command: 'leave', args: " USERNAME
 GROUP_MEMBERS_REQUEST = "command: 'users'"
+SIGN_UP_REQUEST = "command: 'sign_up', args:" USERNAME
+LOGIN_REQUEST = "command: 'login', args:" USERNAME
 
 SERVER_RESPONSE = ACCEPT / DENY
 ACCEPT = "{type: 'good', body: " RESPONSE_TEXT "}"
 DENY = "{type: 'moot', body: " RESPONSE_TEXT "}"
 RESPONSE_TEXT = STRING
 
-SERVER_UPDATE = "{type: 'hoot', body: {" LOCATION ", " NEW_POST_UPDATE / GROUP_UPDATE "}}"
-NEW_POST_UPDATE = "update: 'post', data: {id: " POST_ID ", sender: " USER_ID ", date: " DATE " subject: "STRING"}"
-GROUP_UPDATE = "update: 'users', data: " USER_ID_LIST
+SERVER_UPDATE = "{type: 'hoot', body: {" LOCATION ", " NEW_POST_UPDATE / JOIN_UPDATE / LEAVE_UPDATE "}}"
+NEW_POST_UPDATE = "command: 'post', args: {id: " POST_ID ", sender: " USER_ID ", date: " DATE " subject: "STRING"}"
+JOIN_UPDATE = "command: 'join', args: " USERNAME
+LEAVE_UPDATE = "command: 'leave', args: " USERNAME
 
 LOCATION = "group: " GROUP_ID
 
 POST_ID = INT
-USER_ID = STRING
+USERNAME = STRING
 GROUP_ID = "public" / PRIVATE
 PRIVATE = STRING
 DATE = STRING
