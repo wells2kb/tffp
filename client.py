@@ -1,8 +1,10 @@
 import socket
 import json
 import threading
+import sys
 from message_functions import *
 
+messages = []
 
 #sends message to server
 def send_msg(sock, msg_dict):
@@ -10,54 +12,48 @@ def send_msg(sock, msg_dict):
     data = json.dumps(msg_dict)
     sock.sendall(data.encode() + b"\n")  # newline helps with framing
 
+def prepend_print(string):
+    MAGIC_NUMBER = 12
+    messages.append(string)
+
+    diff = max(0, MAGIC_NUMBER - len(messages))
+    for _ in range(MAGIC_NUMBER - diff + 1):
+        sys.stdout.write("\x1b[F\x1b[K")
+
+    sys.stdout.write("\x1b[2J")
+
+    for message in messages[-MAGIC_NUMBER:]:
+        print(message)
+
+    print("")
+    sys.stdout.write("> ")
+    sys.stdout.flush()
+
 
 #constantly running, should handle messages when it recieves them
 def listen_for_messages(sock):
-    buffer = ""
-    while True:
-        try:
-            chunk = sock.recv(4096).decode()
-            if not chunk:
-                print("Server closed connection.")
-                break
-
-            buffer += chunk
-
-            # Process full messages separated by newlines
-            while "\n" in buffer:
-                raw, buffer = buffer.split("\n", 1)
-                if raw.strip() == "":
-                    continue
-
-                try:
-                    msg = json.loads(raw)
-                except json.JSONDecodeError:
-                    print("[CLIENT] Could not parse message:", raw)
-                    continue
-
-                # Handle message
+    with sock.makefile() as sock_file:
+        for line in sock_file:
+            try:
+                msg = json.loads(line)
                 handle_server_message(msg)
-
-        except ConnectionResetError:
-            print("Connection lost.")
-            break
+            except json.JSONDecodeError:
+                prepend_print("[CLIENT] Could not parse message:", raw)
 
 
 #handles message by outputting appropriate updates.
 def handle_server_message(msg):
-    msg_type = msg.get("type")
+    msg_type = msg.get("tffp").get("type")
+    body = msg.get("tffp").get("body")
 
     if msg_type == "good":
-        print(f"[SUCCESS] {msg.get('body')}")
+        prepend_print(f"[SUCCESS] {body}")
     elif msg_type == "moot":
-        print(f"[ERROR] {msg.get('body')}")
+        prepend_print(f"[ERROR] {body}")
     elif msg_type == "hoot":
-        print(f"[UPDATE] {msg.get('body')}")
+        prepend_print(f"[UPDATE] {body}")
     else:
-        print("[CLIENT] Unknown server message:", msg)
-
-
-
+        prepend_print(f"[CLIENT] Unknown server message: {msg}")
 
 
 def main():
@@ -70,21 +66,25 @@ def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((SERVER_HOST, SERVER_PORT))
 
-    print("Connected to server.")
+    print("\x1b[2JConnected to server.")
 
     # Start receiving thread
     threading.Thread(target=listen_for_messages, args=(sock,), daemon=True).start()
 
     # Command loop
     while True:
+
         cmd = input("> ").strip().lower()
 
         #TODO: convert to connect command; sends same message but does so after connecting to the server
         #(preferably done after we confirm the code works w/ hardcoded server data above so we can test that easily)
-        if cmd == "signup" or cmd=="login":
+        if cmd=="login":
             username = input("Username: ").strip()
             send_msg(sock, make_login_request(username))
 
+        elif cmd=="signup":
+            username = input("Username: ").strip()
+            send_msg(sock, make_sign_up_request(username))
 
         elif cmd == "join":
             group = "public"
@@ -121,8 +121,6 @@ def main():
         #TODO: implement this in message_functions
         elif cmd== "groups":
             pass
-
-
 
         # group join takes a specific group name and joins that group
         elif cmd == "groupjoin":

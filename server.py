@@ -184,14 +184,14 @@ def handle_client(client_socket, client_address):
                                 case _:
                                     response_message = make_deny_response("Not logged in :(")
 
-                        client_socket.sendall(json.dumps(response_message).encode('utf-8'))
+                        client_socket.sendall((json.dumps(response_message) + "\n").encode('utf-8'))
 
                         if update_message:
                             with clients as client_list, groups[group].users as users:
                                 for client in client_list:
                                     if client.username in users:
                                         try:
-                                            client.socket.sendall(json.dumps(update_message).encode('utf-8') + "\n")
+                                            client.socket.sendall((json.dumps(update_message) + "\n").encode('utf-8'))
                                         except ConnectionError:
                                             client_list.remove(client)
 
@@ -199,7 +199,7 @@ def handle_client(client_socket, client_address):
                 except Exception as e:
                     exc_type, exc_value, exc_traceback = sys.exc_info()
                     line = exc_traceback.tb_lineno
-                    client_socket.sendall(json.dumps(make_deny_response(f"{type(e).__name__} on line: {line}, '{e}'") + "\n").encode('utf-8'))
+                    client_socket.sendall((json.dumps(make_deny_response(f"{type(e).__name__} on line: {line}, '{e}'")) + "\n").encode('utf-8'))
 
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
