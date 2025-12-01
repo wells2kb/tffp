@@ -90,6 +90,31 @@ def make_group_users_request(group):
         }
     }
 
+#sends request to remove user from all groups and terminate connection
+def make_quit_request():
+    return {
+        "tffp": {
+            "type": "seek",
+            "body": {
+                "group": "public",
+                "command": "quit"
+            }
+        }
+    }
+
+
+#requests a list of all groups from the server
+def make_groups_request():
+    return {
+        "tffp": {
+            "type": "seek",
+            "body": {
+                "group":"public",
+                "command": "groups"
+            }
+        }
+    }
+
 #server accepts user request
 def make_accept_response(text:str):
     return {
