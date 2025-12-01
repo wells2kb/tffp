@@ -125,8 +125,20 @@ def handle_client(client_socket, client_address):
                                     response_message = make_accept_response("Left Group!")
                                     update_message = make_leave_update(group, user)
 
+                                case "quit":
+                                    #not using group to avoid confusion
+                                    for g in groups:
+                                        groups[g].users.delist(user)
+                                    response_message = make_accept_response("Quit from message board")
+                                    update_message = make_leave_update(group, user) #may need to make a different update_message for quitting
+
+
+
                                 case "users":
                                     response_message = make_accept_response(str(groups[group].users))
+
+                                case "groups":
+                                    response_message=make_accept_response(str(list(groups.keys())))
 
                                 case "join":
                                     response_message = make_deny_response("Already in that group")
@@ -147,6 +159,16 @@ def handle_client(client_socket, client_address):
                                 
                                 case "login" | "sign_up":
                                     response_message = make_deny_response("You are already logged in")
+
+                                case "groups":
+                                    response_message = make_accept_response(str(list(groups.keys())))
+
+                                case "quit":
+                                    # not using group to avoid confusion
+                                    for g in groups:
+                                        groups[g].users.delist(user)
+                                    response_message = make_accept_response("Quit from message board")
+                                    update_message = make_leave_update(group,user)  # may need to make a different update_message for quitting
 
                                 case _:
                                     response_message = make_deny_response(f"Must join Group: '{group}' before using the Command: '{command}'")

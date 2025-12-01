@@ -38,7 +38,7 @@ def listen_for_messages(sock):
                 msg = json.loads(line)
                 handle_server_message(msg)
             except json.JSONDecodeError:
-                prepend_print("[CLIENT] Could not parse message:", raw)
+                prepend_print("[CLIENT] Could not parse message:" + msg)
 
 
 #handles message by outputting appropriate updates.
@@ -57,10 +57,11 @@ def handle_server_message(msg):
 
 
 def main():
-    #in the final iteration we need a connect command so these will be removed in favor of that
-    #connect command will replace signup/login
+
+
     SERVER_HOST = "127.0.0.1"
     SERVER_PORT = 3535
+
 
     # Connect to server
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -76,8 +77,7 @@ def main():
 
         cmd = input("> ").strip().lower()
 
-        #TODO: convert to connect command; sends same message but does so after connecting to the server
-        #(preferably done after we confirm the code works w/ hardcoded server data above so we can test that easily)
+
         if cmd=="login":
             username = input("Username: ").strip()
             send_msg(sock, make_login_request(username))
@@ -89,6 +89,8 @@ def main():
         elif cmd == "join":
             group = "public"
             send_msg(sock, make_join_request(group))
+            #gives user a list of the members of the group when joining
+            send_msg(sock, make_group_users_request(group))
 
 
         elif cmd == "leave":
@@ -111,21 +113,24 @@ def main():
             send_msg(sock, make_group_users_request(group))
 
 
-        #TODO: modify so that the server gets notified/removes user from ALL groups they are a part of
         elif cmd == "quit":
+            send_msg(sock, make_quit_request())
             print("Closing client...")
             break
 
         #after this point is the part 2 commands
+        #most are the same as part one commands but take input for the group rather than assuming
+        #the user wishes to use the public group.
 
-        #TODO: implement this in message_functions
         elif cmd== "groups":
-            pass
+            send_msg(sock, make_groups_request())
 
         # group join takes a specific group name and joins that group
         elif cmd == "groupjoin":
             group = input("Group: ").strip()
             send_msg(sock, make_join_request(group))
+            # gives user a list of the members of the group when joining
+            send_msg(sock, make_group_users_request(group))
 
         elif cmd == "groupleave":
             group = input("Group: ").strip()
@@ -147,7 +152,7 @@ def main():
             send_msg(sock, make_group_users_request(group))
 
         else:
-            print("Commands: signup, login, join/groupJoin, leave/groupLeave, post/groupPost, "
+            print("Commands: signup, login, groups, join/groupJoin, leave/groupLeave, post/groupPost, "
                   "\n content/groupContent, users/groupUsers, quit")
 
     sock.close()
