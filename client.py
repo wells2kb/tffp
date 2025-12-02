@@ -59,11 +59,11 @@ def handle_server_message(msg):
     else:
         prepend_print(f"[CLIENT] Unknown server message: {msg}")
 
+   
 
 def main():
-    # start sock and listener with 'connect' command
-    sock = None
-    listener = None
+    # connect sock and start listener
+    sock, listener = None, None
     
     print("Commands: connect, signup, login, groups, join/groupJoin, leave/groupLeave, post/groupPost, "
                   "\n content/groupContent, users/groupUsers, quit")
@@ -71,6 +71,10 @@ def main():
     while True:
 
         cmd = input("> ").strip().lower()
+
+        if sock is None and cmd != "connect" and cmd != "quit":
+            print("Connect to a server first.")
+            continue
 
         if cmd == "connect":
             if sock is not None:
@@ -126,10 +130,18 @@ def main():
             group = "public"
             send_msg(sock, make_group_users_request(group))
 
-
         elif cmd == "quit":
+            if sock is None: 
+                break
             send_msg(sock, make_quit_request())
             print("Closing client...")
+
+            # Force listener to stop reading
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+
             sock.close()
             listener.join() # join threads for shutdown
             break
