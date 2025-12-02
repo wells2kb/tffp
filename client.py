@@ -47,7 +47,10 @@ def listen_for_messages(sock):
 
 #handles message by outputting appropriate updates.
 def handle_server_message(msg):
+    """Add message type to server message content"""
+    # prepend message depending on type
     msg_type = msg.get("tffp").get("type")
+    # get message content
     body = msg.get("tffp").get("body")
 
     if msg_type == "good":
@@ -73,6 +76,7 @@ def main():
         cmd = input("> ").strip().lower()
 
         if sock is None and cmd != "connect" and cmd != "quit":
+            # Must connect to a server before running other commands
             print("Connect to a server first.")
             continue
 
@@ -81,8 +85,9 @@ def main():
                 print("Already connected.")
                 continue
             
-            server_ip = input("IP: ")
-            server_port = int(input("Port: "))
+            # get IP and Port of a bulletin board server
+            server_ip = input("IP (option - 127.0.0.1): ")
+            server_port = int(input("Port (option - 3535): "))
             
             try:
                 # Connect to server
@@ -97,14 +102,17 @@ def main():
                 print(f"Connection failed with error: {e}")
             
         elif cmd=="login":
+            # login with a given username
             username = input("Username: ").strip()
             send_msg(sock, make_login_request(username))
 
         elif cmd=="signup":
+            # signup and login with a given username
             username = input("Username: ").strip()
             send_msg(sock, make_sign_up_request(username))
 
         elif cmd == "join":
+            # join the public group
             group = "public"
             send_msg(sock, make_join_request(group))
             #gives user a list of the members of the group when joining
@@ -112,26 +120,31 @@ def main():
 
 
         elif cmd == "leave":
+            # leave the public group
             group = "public"
             send_msg(sock, make_leave_request(group))
 
         elif cmd == "post":
+            # make a post to public group
             group = "public"
             subject = input("Subject: ").strip()
             content = input("Content: ").strip()
             send_msg(sock, make_new_post_request(group, subject, content))
 
         elif cmd == "content":
+            # see content of message given a post ID in public group
             group = "public"
             post_id = int(input("Post ID: ").strip())
             send_msg(sock, make_content_request(group, post_id))
 
         elif cmd == "users":
+            # list users in public group
             group = "public"
             send_msg(sock, make_group_users_request(group))
 
         elif cmd == "quit":
             if sock is None: 
+                # just exit, nothing to close
                 break
             send_msg(sock, make_quit_request())
             print("Closing client...")
@@ -151,35 +164,42 @@ def main():
         #the user wishes to use the public group.
 
         elif cmd== "groups":
+            # list all groups
             send_msg(sock, make_groups_request())
 
         # group join takes a specific group name and joins that group
         elif cmd == "groupjoin":
+            # join a given group
             group = input("Group: ").strip()
             send_msg(sock, make_join_request(group))
             # gives user a list of the members of the group when joining
             send_msg(sock, make_group_users_request(group))
 
         elif cmd == "groupleave":
+            # leave a given group
             group = input("Group: ").strip()
             send_msg(sock, make_leave_request(group))
 
         elif cmd == "grouppost":
+            # make a post to a given group
             group = input("Group: ").strip()
             subject = input("Subject: ").strip()
             content = input("Content: ").strip()
             send_msg(sock, make_new_post_request(group, subject, content))
 
         elif cmd == "groupcontent":
+            # get content of message in a given group and post id
             group = input("Group: ").strip()
             post_id = int(input("Post ID: ").strip())
             send_msg(sock, make_content_request(group, post_id))
 
         elif cmd == "groupusers":
+            # get list of users in a group
             group = input("Group: ").strip()
             send_msg(sock, make_group_users_request(group))
 
         else:
+            # if user enters invalid command, show list of valid commands 
             print("Commands: connect, signup, login, groups, join/groupJoin, leave/groupLeave, post/groupPost, "
                   "\n content/groupContent, users/groupUsers, quit")
 
