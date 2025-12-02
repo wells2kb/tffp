@@ -14,7 +14,7 @@ def send_msg(sock, msg_dict):
 
 def prepend_print(string):
     MAGIC_NUMBER = 12
-    messages.append(string)
+    messages.extend(string.split("\n"))
 
     diff = max(0, MAGIC_NUMBER - len(messages))
     for _ in range(MAGIC_NUMBER - diff + 1):
@@ -32,17 +32,13 @@ def prepend_print(string):
 
 #constantly running, should handle messages when it recieves them
 def listen_for_messages(sock):
-    try:
-        with sock.makefile() as sock_file:
-            for line in sock_file:
-                try:
-                    msg = json.loads(line)
-                    handle_server_message(msg)
-                except json.JSONDecodeError:
-                    prepend_print("[CLIENT] Could not parse message:" + msg)
-    except Exception:
-        # avoid throwing exception when client shuts down
-        pass
+    with sock.makefile() as sock_file:
+        for line in sock_file:
+            try:
+                msg = json.loads(line)
+                handle_server_message(msg)
+            except json.JSONDecodeError:
+                prepend_print("[CLIENT] Could not parse message:" + msg)
 
 
 #handles message by outputting appropriate updates.
@@ -58,24 +54,30 @@ def handle_server_message(msg):
     elif msg_type == "moot":
         prepend_print(f"[ERROR] {body}")
     elif msg_type == "hoot":
-        prepend_print(f"[UPDATE] {body}")
+        match body["command"]:
+            case "post":
+                prepend_print(f"[UPDATE] New post in '{body['group']}': {body['args']}")
+            case "join":
+                prepend_print(f"[UPDATE] '{body['args']}' just joined '{body['group']}'")
+            case "leave":
+                prepend_print(f"[UPDATE] '{body['args']}' just left '{body['group']}'")
+            case _:
+                prepend_print(f"[UPDATE] {body}")
     else:
         prepend_print(f"[CLIENT] Unknown server message: {msg}")
-
    
 
 def main():
     # connect sock and start listener
     sock, listener = None, None
     
-    print("Commands: connect, signup, login, groups, join/groupJoin, leave/groupLeave, post/groupPost, "
-                  "\n content/groupContent, users/groupUsers, quit")
+    print("Please 'connect' to continue")
+
     # Command loop
     while True:
-
         cmd = input("> ").strip().lower()
 
-        if sock is None and cmd != "connect" and cmd != "quit":
+        if sock is None and cmd != "connect" and cmd != "exit":
             # Must connect to a server before running other commands
             print("Connect to a server first.")
             continue
@@ -86,19 +88,25 @@ def main():
                 continue
             
             # get IP and Port of a bulletin board server
-            server_ip = input("IP (option - 127.0.0.1): ")
-            server_port = int(input("Port (option - 3535): "))
+            server_ip = input("IP or press 'ENTER' for the default: ")
+            server_port = input("Port or press 'ENTER' for the default: ")
+            if not server_ip: 
+                server_ip = "127.0.0.1"
+            if not server_port: 
+                server_port = 3535
             
             try:
                 # Connect to server
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect((server_ip, server_port))
+                sock.connect((server_ip, int(server_port)))
                 print(f"\x1b[2JConnected to server IP={server_ip} Port={server_port}")
+                print(f"Please 'signup' or 'login' to continue")
                 
                 # Start receiving thread
                 listener = threading.Thread(target=listen_for_messages, args=(sock,), daemon=False)
                 listener.start()
             except Exception as e:
+                sock = None
                 print(f"Connection failed with error: {e}")
             
         elif cmd=="login":
@@ -115,8 +123,6 @@ def main():
             # join the public group
             group = "public"
             send_msg(sock, make_join_request(group))
-            #gives user a list of the members of the group when joining
-            send_msg(sock, make_group_users_request(group))
 
 
         elif cmd == "leave":
@@ -142,13 +148,11 @@ def main():
             group = "public"
             send_msg(sock, make_group_users_request(group))
 
-        elif cmd == "quit":
-            if sock is None: 
+        elif cmd == "exit":
+            print("Closing client...")
+            if sock is None:
                 # just exit, nothing to close
                 break
-            send_msg(sock, make_quit_request())
-            print("Closing client...")
-
             # Force listener to stop reading
             try:
                 sock.shutdown(socket.SHUT_RDWR)
@@ -157,7 +161,6 @@ def main():
 
             sock.close()
             listener.join() # join threads for shutdown
-            break
 
         #after this point is the part 2 commands
         #most are the same as part one commands but take input for the group rather than assuming
@@ -172,8 +175,6 @@ def main():
             # join a given group
             group = input("Group: ").strip()
             send_msg(sock, make_join_request(group))
-            # gives user a list of the members of the group when joining
-            send_msg(sock, make_group_users_request(group))
 
         elif cmd == "groupleave":
             # leave a given group
@@ -201,7 +202,10 @@ def main():
         else:
             # if user enters invalid command, show list of valid commands 
             print("Commands: connect, signup, login, groups, join/groupJoin, leave/groupLeave, post/groupPost, "
-                  "\n content/groupContent, users/groupUsers, quit")
+                  "\n content/groupContent, users/groupUsers, exit")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass

@@ -4,7 +4,7 @@ import json
 import random
 import sys
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 from message_functions import *
 
@@ -75,6 +75,7 @@ clients = ThreadSafeList()
 names = ThreadSafeList()
 
 def handle_client(client_socket, client_address):
+    try:
         user = ""
         with client_socket.makefile('r') as socket_file:
             for line in socket_file:
@@ -96,6 +97,8 @@ def handle_client(client_socket, client_address):
                         # Check if the user is member of the group in their request
                         is_member = False
                         if user and group:
+                            if group not in groups:
+                                raise ValueError("Not a valid group")
                             with groups[group].users as users:
                                 is_member = user in users
                         
@@ -109,7 +112,7 @@ def handle_client(client_socket, client_address):
                                     if subject == "" or content == "":
                                         raise ValueError("Subject/content must be non-empty string")
 
-                                    date = datetime.now().strftime("%H:%M")
+                                    date = datetime.now().strftime("%b %d - %I:%M %p")
                                     post = Post(user, date, subject, content)
                                     post_id = groups[group].posts.push(post)
 
@@ -124,15 +127,6 @@ def handle_client(client_socket, client_address):
                                     groups[group].users.delist(user)
                                     response_message = make_accept_response("Left Group!")
                                     update_message = make_leave_update(group, user)
-
-                                case "quit":
-                                    #not using group to avoid confusion
-                                    for g in groups:
-                                        groups[g].users.delist(user)
-                                    response_message = make_accept_response("Quit from message board")
-                                    update_message = make_leave_update(group, user) #may need to make a different update_message for quitting
-
-
 
                                 case "users":
                                     response_message = make_accept_response(str(groups[group].users))
@@ -153,22 +147,31 @@ def handle_client(client_socket, client_address):
                             # Else we are not already in the selected group
                             match command:
                                 case "join":
-                                    groups[group].users.push(user)
-                                    response_message = make_accept_response("Joined Group!")
-                                    update_message = make_join_update(group, user)
+                                    with groups[group].posts as posts, groups[group].users as users:
+                                        users.append(user)
+
+                                        # Turn the last two posts into dics without the content to 
+                                        def get_nth_last_post(n):
+                                            n += 1
+                                            nth_last_post = {"id": len(posts) - n} | asdict(posts[-n]) if len(posts) >= n else {"content":""}
+                                            del nth_last_post["content"]
+                                            return nth_last_post
+
+                                        pre_last_post = get_nth_last_post(1)
+                                        last_post = get_nth_last_post(0)
+
+                                        response_message = make_accept_response(
+                                                f"Joined {group}, Users: {users}" + \
+                                                (f"\n\t{pre_last_post}" if pre_last_post else "") + \
+                                                (f"\n\t{last_post}" if last_post else "")
+                                            )
+                                        update_message = make_join_update(group, user)
                                 
                                 case "login" | "sign_up":
                                     response_message = make_deny_response("You are already logged in")
 
                                 case "groups":
                                     response_message = make_accept_response(str(list(groups.keys())))
-
-                                case "quit":
-                                    # not using group to avoid confusion
-                                    for g in groups:
-                                        groups[g].users.delist(user)
-                                    response_message = make_accept_response("Quit from message board")
-                                    update_message = make_leave_update(group,user)  # may need to make a different update_message for quitting
 
                                 case _:
                                     response_message = make_deny_response(f"Must join Group: '{group}' before using the Command: '{command}'")
@@ -185,9 +188,9 @@ def handle_client(client_socket, client_address):
                                         if args in name_list:
                                             user = args
                                             clients.push(Client(client_socket, user))
-                                            response_message = make_accept_response("You are logged in!")
+                                            response_message = make_accept_response(f"Logged in! Groups: {list(groups.keys())}")
                                         else:
-                                            response_message = make_deny_response("Username not Found")
+                                            response_message = make_deny_response("Username not found, please sign up")
 
                                 case "sign_up":
                                     assert type(args) == str
@@ -199,21 +202,24 @@ def handle_client(client_socket, client_address):
                                             user = args
                                             name_list.append(user)
                                             clients.push(Client(client_socket, user))
-                                            response_message = make_accept_response("You are signed up and logged in!")
+                                            response_message = make_accept_response(f"Signed up! Groups: {list(groups.keys())}")
                                         else:
                                             response_message = make_deny_response("Username already in use")
+
+                                case "groups":
+                                    response_message=make_accept_response(str(list(groups.keys())))
 
                                 case _:
                                     response_message = make_deny_response("Not logged in :(")
 
-                        client_socket.sendall((json.dumps(response_message) + "\n").encode('utf-8'))
+                        client_socket.sendall((json.dumps(response_message) + "\r\n").encode('utf-8'))
 
                         if update_message:
                             with clients as client_list, groups[group].users as users:
                                 for client in client_list:
                                     if client.username in users:
                                         try:
-                                            client.socket.sendall((json.dumps(update_message) + "\n").encode('utf-8'))
+                                            client.socket.sendall((json.dumps(update_message) + "\r\n").encode('utf-8'))
                                         except ConnectionError:
                                             client_list.remove(client)
 
@@ -223,13 +229,17 @@ def handle_client(client_socket, client_address):
                     line = exc_traceback.tb_lineno
                     client_socket.sendall((json.dumps(make_deny_response(f"{type(e).__name__} on line: {line}, '{e}'")) + "\n").encode('utf-8'))
 
+    except Exception as e:
+        print(e)
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((HOST, PORT))
 server_socket.listen(5)
 
+print("Server started")
 while True:
     client = server_socket.accept()
+    print("Client connected")
     thread = threading.Thread(target=handle_client, args=client)
     thread.start()
 
