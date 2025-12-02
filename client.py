@@ -32,13 +32,17 @@ def prepend_print(string):
 
 #constantly running, should handle messages when it recieves them
 def listen_for_messages(sock):
-    with sock.makefile() as sock_file:
-        for line in sock_file:
-            try:
-                msg = json.loads(line)
-                handle_server_message(msg)
-            except json.JSONDecodeError:
-                prepend_print("[CLIENT] Could not parse message:" + msg)
+    try:
+        with sock.makefile() as sock_file:
+            for line in sock_file:
+                try:
+                    msg = json.loads(line)
+                    handle_server_message(msg)
+                except json.JSONDecodeError:
+                    prepend_print("[CLIENT] Could not parse message:" + msg)
+    except Exception:
+        # avoid throwing exception when client shuts down
+        pass
 
 
 #handles message by outputting appropriate updates.
@@ -57,28 +61,38 @@ def handle_server_message(msg):
 
 
 def main():
-
-
-    SERVER_HOST = "127.0.0.1"
-    SERVER_PORT = 3535
-
-
-    # Connect to server
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((SERVER_HOST, SERVER_PORT))
-
-    print("\x1b[2JConnected to server.")
-
-    # Start receiving thread
-    threading.Thread(target=listen_for_messages, args=(sock,), daemon=True).start()
-
+    # start sock and listener with 'connect' command
+    sock = None
+    listener = None
+    
+    print("Commands: connect, signup, login, groups, join/groupJoin, leave/groupLeave, post/groupPost, "
+                  "\n content/groupContent, users/groupUsers, quit")
     # Command loop
     while True:
 
         cmd = input("> ").strip().lower()
 
-
-        if cmd=="login":
+        if cmd == "connect":
+            if sock is not None:
+                print("Already connected.")
+                continue
+            
+            server_ip = input("IP: ")
+            server_port = int(input("Port: "))
+            
+            try:
+                # Connect to server
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((server_ip, server_port))
+                print(f"\x1b[2JConnected to server IP={server_ip} Port={server_port}")
+                
+                # Start receiving thread
+                listener = threading.Thread(target=listen_for_messages, args=(sock,), daemon=False)
+                listener.start()
+            except Exception as e:
+                print(f"Connection failed with error: {e}")
+            
+        elif cmd=="login":
             username = input("Username: ").strip()
             send_msg(sock, make_login_request(username))
 
@@ -116,6 +130,8 @@ def main():
         elif cmd == "quit":
             send_msg(sock, make_quit_request())
             print("Closing client...")
+            sock.close()
+            listener.join() # join threads for shutdown
             break
 
         #after this point is the part 2 commands
@@ -152,11 +168,8 @@ def main():
             send_msg(sock, make_group_users_request(group))
 
         else:
-            print("Commands: signup, login, groups, join/groupJoin, leave/groupLeave, post/groupPost, "
+            print("Commands: connect, signup, login, groups, join/groupJoin, leave/groupLeave, post/groupPost, "
                   "\n content/groupContent, users/groupUsers, quit")
-
-    sock.close()
-
 
 if __name__ == "__main__":
     main()
